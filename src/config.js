@@ -23,11 +23,6 @@ export const TUNABLES = {
   // to matter a little, otherwise the agent dithers between equal parcels.
   MIN_STEP_COST: 0.1,
 
-  // Flat bonus added to the "deliver" option for each parcel currently carried.
-  // This nudges the agent to cash in what it is holding instead of hoarding
-  // forever. Raise it to deliver more eagerly, lower it to collect more first.
-  DELIVER_BONUS_PER_PARCEL: 2,
-
   // Baseline score of the "explore" option. Any pickup or delivery that scores
   // above this will be preferred; when nothing beats it, the agent wanders to
   // discover new parcels. Keep it low.
@@ -51,6 +46,12 @@ export const TUNABLES = {
   // When exploring, how many tiles ahead we commit to before re-choosing a new
   // exploration target.
   EXPLORE_REPLAN_EVERY: 6,
+
+  TARGET_LOAD: 4,
+
+  DELIVER_URGENCY: 5,
+
+  HOARD_PULL: 4
 };
 
 /**

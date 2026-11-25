@@ -18,7 +18,7 @@ import { Beliefs } from './beliefs.js';
 import { Grid } from './grid.js';
 import { generateOptions, chooseBest, sameTarget } from './deliberation.js';
 import {
-  TUNABLES, parseDecayMs, moveDuration, deriveStepCost,
+  TUNABLES, parseDecayMs, moveDuration, deriveStepCost, capacity
 } from './config.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -34,6 +34,7 @@ export class Agent {
     this.config = {};
     this.stepCost = TUNABLES.STEP_COST_NO_DECAY;
     this.moveDur = TUNABLES.DEFAULT_MOVE_DURATION;
+    this.capacity = Infinity;
     /** the option we're currently committed to (for logging/revision) */
     this.current = null;
   }
@@ -70,6 +71,7 @@ export class Agent {
       config?.GAME?.player?.observation_distance ?? this.beliefs.observationDistance;
     this.stepCost = deriveStepCost(config);
     this.moveDur = moveDuration(config);
+    this.capacity = capacity(config);
   }
 
   // ──────────────────────────────────────────────────────────────────────
@@ -77,7 +79,7 @@ export class Agent {
   // ──────────────────────────────────────────────────────────────────────
 
   _bestOption() {
-    const options = generateOptions(this.beliefs, this.grid, this.stepCost);
+    const options = generateOptions(this.beliefs, this.grid, this.stepCost, this.capacity);
     return { best: chooseBest(options), options };
   }
 
@@ -134,7 +136,7 @@ export class Agent {
     };
     const result = await this._goTo(targetGetter, () => this._shouldAbort(option));
     if (result === 'arrived') {
-      const picked = await this.socket.emitPickup();
+      const picked = await this._tryPickup();
       this.beliefs.onPickedUp(picked);
       console.log(`picked up ${Array.isArray(picked) ? picked.length : '?'} parcel(s)`);
     }
@@ -146,7 +148,7 @@ export class Agent {
     const target = option.target;
     const result = await this._goTo(() => target, () => this._shouldAbort(option));
     if (result === 'arrived') {
-      const dropped = await this.socket.emitPutdown();
+      const dropped = await this._tryPutdown();
       this.beliefs.onPutDown(dropped);
       console.log(`delivered ${Array.isArray(dropped) ? dropped.length : '?'} parcel(s), score=${this.beliefs.me.score}`);
     }
@@ -204,7 +206,7 @@ export class Agent {
         continue;
       }
 
-      const res = await this.socket.emitMove(step.dir);
+      const res = await this._tryMove(step.dir);
       if (res && typeof res.x === 'number') {
         this.beliefs.updateMe(res); // authoritative integer position
         failures = 0;
@@ -239,4 +241,17 @@ export class Agent {
     }
     return null;
   }
+
+  async _tryMove(dir) {
+  try { return await this.socket.emitMove(dir); }
+  catch { return false; }          // ack timed out / server hiccup → treat as a failed move
+}
+async _tryPickup() {
+  try { return await this.socket.emitPickup(); }
+  catch { return []; }
+}
+async _tryPutdown() {
+  try { return await this.socket.emitPutdown(); }
+  catch { return []; }
+}
 }

@@ -17,7 +17,7 @@
  * so they are directly comparable. Tune the weights in config.js.
  */
 
-import { TUNABLES } from './config.js';
+import { TUNABLES} from './config.js';
 
 /**
  * Generate and score every option available right now.
@@ -26,7 +26,7 @@ import { TUNABLES } from './config.js';
  * @param {number} stepCost reward lost per step (from config.deriveStepCost)
  * @returns {Array<{type:string, score:number, parcel?:object, target?:{x:number,y:number}}>}
  */
-export function generateOptions(beliefs, grid, stepCost) {
+export function generateOptions(beliefs, grid, stepCost, capacity = Infinity) {
   const options = [];
   const me = beliefs.myTile;
   const blocked = beliefs.occupiedTiles();
@@ -46,10 +46,10 @@ export function generateOptions(beliefs, grid, stepCost) {
     if (path !== null) {
       const steps = path.length;
       const target = steps === 0 ? me : path[path.length - 1];
-      const score =
-        beliefs.carriedValue() +
-        TUNABLES.DELIVER_BONUS_PER_PARCEL * carriedCount -
-        stepCost * steps;
+      const targetLoad = Math.min(TUNABLES.TARGET_LOAD, capacity);
+      let score = beliefs.carriedValue() - stepCost * steps;
+      if (carriedCount >= targetLoad) score += TUNABLES.DELIVER_URGENCY;
+      else score -= TUNABLES.HOARD_PULL;
       options.push({ type: 'deliver', target, score });
     }
   }
