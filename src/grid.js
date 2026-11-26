@@ -28,20 +28,8 @@ const DIRECTIONS = [
   { dir: 'down', dx: 0, dy: -1 },
 ];
 
-/**
- * For each arrow tile type, the ONE move direction that is forbidden when
- * entering it. (The arrow points one way; entering against it is blocked.)
- *   ↑ points up   -> cannot be entered by moving 'down'  (coming from above)
- *   ↓ points down -> cannot be entered by moving 'up'
- *   → points right-> cannot be entered by moving 'left'
- *   ← points left -> cannot be entered by moving 'right'
- */
-const FORBIDDEN_ENTRY = {
-  '↑': 'down',
-  '↓': 'up',
-  '→': 'left',
-  '←': 'right',
-};
+// Each arrow tile can ONLY be entered by moving in the arrow's own direction.
+const ARROW_DIR = { '↑': 'up', '↓': 'down', '→': 'right', '←': 'left' };
 
 const key = (x, y) => `${x},${y}`;
 
@@ -110,8 +98,8 @@ export class Grid {
   canEnter(x, y, dir) {
     const type = this.tiles.get(key(x, y));
     if (type === undefined || type === '0') return false;
-    const forbidden = FORBIDDEN_ENTRY[type];
-    return forbidden === undefined || forbidden !== dir;
+    const required = ARROW_DIR[type];
+    return required === undefined || required === dir;
   }
 
   /**
@@ -137,6 +125,7 @@ export class Grid {
 
     while (queue.length > 0) {
       const node = queue.shift();
+      if (!node) break; // can't happen (length > 0), but tells the type checker node is defined
       for (const { dir, dx, dy } of DIRECTIONS) {
         const nx = node.x + dx;
         const ny = node.y + dy;

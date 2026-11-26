@@ -124,6 +124,7 @@ export class Beliefs {
 
   /** Is tile (x,y) close enough that I should currently be able to see it? */
   _withinObservation(x, y) {
+    if (this.observationDistance === -1) return true; // unlimited sight
     const me = this.myTile;
     return Math.abs(me.x - x) + Math.abs(me.y - y) <= this.observationDistance;
   }
@@ -161,7 +162,9 @@ export class Beliefs {
   /** Set of "x,y" tiles currently occupied by other agents (to route around). */
   occupiedTiles() {
     const set = new Set();
-    for (const a of this.agents.values()) set.add(`${a.x},${a.y}`);
+    // Round: agents mid-move have fractional positions (e.g. 3.6) that
+    // would never match a "x,y" grid key.
+    for (const a of this.agents.values()) set.add(`${Math.round(a.x)},${Math.round(a.y)}`);
     return set;
   }
 

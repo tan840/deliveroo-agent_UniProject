@@ -111,9 +111,13 @@ export class Agent {
       // Act only from a whole tile; mid-move positions are fractional.
       if (!this.grid.ready || !this.beliefs.isSettled) { await sleep(20); continue; }
 
-      const { best } = this._bestOption();
-      this.current = best;
-      await this._execute(best);
+      try {
+        const { best } = this._bestOption();
+        this.current = best;
+        await this._execute(best);
+      } catch (err) {
+        console.error('loop error, re-deliberating:', err); // never let one bad tick kill the agent
+      }
       await sleep(10); // let queued sensing events flush between intentions
     }
   }
@@ -123,7 +127,7 @@ export class Agent {
     switch (option.type) {
       case 'pickup': return this._doPickup(option);
       case 'deliver': return this._doDeliver(option);
-      default: return this._doExplore(option);
+      default: return this._doExplore();
     }
   }
 
@@ -171,12 +175,14 @@ export class Agent {
    *   'gone'         the target disappeared (targetGetter returned null)
    *   'aborted'      a better intention appeared
    *   'failed'       too many consecutive move failures
+   *   'blocked'      waited MAX_WAITS times for another agent to move
    *
    * @param {() => ({x:number,y:number}|null)} targetGetter
    * @param {() => boolean} shouldAbort
    */
   async _goTo(targetGetter, shouldAbort) {
     let failures = 0;
+    let waits = 0;
     while (true) {
       if (shouldAbort()) return 'aborted';
       if (!this.beliefs.isSettled) { await sleep(20); continue; }
@@ -194,6 +200,7 @@ export class Agent {
         // the target is genuinely unreachable (walls / one-way tiles).
         const ignoringAgents = this.grid.pathTo(me, target, new Set());
         if (!ignoringAgents) return 'unreachable';
+        if (++waits > TUNABLES.MAX_WAITS) return 'blocked';
         await sleep(this.moveDur);
         continue;
       }
@@ -202,6 +209,7 @@ export class Agent {
       const step = path[0];
       if (blocked.has(`${step.x},${step.y}`)) {
         // Next tile is occupied right now; pause and re-plan.
+        if (++waits > TUNABLES.MAX_WAITS) return 'blocked';
         await sleep(this.moveDur);
         continue;
       }
@@ -210,6 +218,15 @@ export class Agent {
       if (res && typeof res.x === 'number') {
         this.beliefs.updateMe(res); // authoritative integer position
         failures = 0;
+        waits = 0;
+
+        // Opportunistic delivery: if this step landed me on a delivery tile while
+        // carrying parcels, bank them now — free points, no extra travel.
+        const here = this.beliefs.myTile;
+        if (this.beliefs.carrying.size > 0 && this.grid.isDelivery(here.x, here.y)) {
+          const dropped = await this._tryPutdown();
+          this.beliefs.onPutDown(dropped);
+        }
       } else {
         failures++;
         if (failures > TUNABLES.MAX_MOVE_RETRIES) return 'failed';
@@ -243,15 +260,17 @@ export class Agent {
   }
 
   async _tryMove(dir) {
-  try { return await this.socket.emitMove(dir); }
-  catch { return false; }          // ack timed out / server hiccup → treat as a failed move
-}
-async _tryPickup() {
-  try { return await this.socket.emitPickup(); }
-  catch { return []; }
-}
-async _tryPutdown() {
-  try { return await this.socket.emitPutdown(); }
-  catch { return []; }
-}
+    try { return await this.socket.emitMove(dir); }
+    catch { return false; } // ack timed out / server hiccup → treat as a failed move
+  }
+
+  async _tryPickup() {
+    try { return await this.socket.emitPickup(); }
+    catch { return []; }
+  }
+
+  async _tryPutdown() {
+    try { return await this.socket.emitPutdown(); }
+    catch { return []; }
+  }
 }

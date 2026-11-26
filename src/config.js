@@ -12,46 +12,27 @@
  */
 
 export const TUNABLES = {
-  // --- Scoring ------------------------------------------------------------
-  // How many reward points one step of walking is "worth" when the map has NO
-  // parcel decay. With decay on, this is overridden by a value derived from the
-  // server config (see deriveStepCost). Higher => the agent prefers closer
-  // parcels even if farther ones are worth a bit more.
+
   STEP_COST_NO_DECAY: 0.6,
-
-  // The smallest step cost we ever use. Even on a no-decay map we want distance
-  // to matter a little, otherwise the agent dithers between equal parcels.
+  
   MIN_STEP_COST: 0.1,
-
-  // Baseline score of the "explore" option. Any pickup or delivery that scores
-  // above this will be preferred; when nothing beats it, the agent wanders to
-  // discover new parcels. Keep it low.
+  
   EXPLORE_SCORE: 0.5,
-
-  // --- Intention revision (anti-oscillation) ------------------------------
-  // A new option must beat the current one by at least this many points before
-  // the agent abandons what it is doing. Prevents flip-flopping between two
-  // parcels of almost equal value. Raise if the agent looks "indecisive".
+  
   SWITCH_MARGIN: 1.5,
-
-  // --- Execution / robustness --------------------------------------------
-  // How many times a single move may fail (blocked by another agent, etc.)
-  // before we give up on the current plan and re-deliberate.
+  
   MAX_MOVE_RETRIES: 3,
 
-  // Fallback movement duration (ms) if the server config doesn't provide one.
-  // Used for the "wait a bit then retry" pauses.
   DEFAULT_MOVE_DURATION: 500,
-
-  // When exploring, how many tiles ahead we commit to before re-choosing a new
-  // exploration target.
+ 
   EXPLORE_REPLAN_EVERY: 6,
 
   TARGET_LOAD: 4,
 
   DELIVER_URGENCY: 5,
 
-  HOARD_PULL: 4
+  HOARD_PULL: 4,
+  
 };
 
 /**
@@ -77,7 +58,7 @@ export function parseDecayMs(config) {
       return unit === 's' ? n * 1000 : n;
     }
   }
-  return null; // unknown format => treat as no decay, safest default
+  return null; 
 }
 
 /**
